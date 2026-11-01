@@ -1,0 +1,5 @@
+build/
+keystore/
+*.p12
+*.jks
+magisk/system/

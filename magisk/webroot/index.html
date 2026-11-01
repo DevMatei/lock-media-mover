@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lock Media Mover</title>
+<style>
+  :root {
+    --bg: #121316;
+    --card: #1c1d22;
+    --line: #2c2e35;
+    --text: #ecebe6;
+    --muted: #9a9aa3;
+    --accent: #ede4cf;
+    --accent-ink: #26231c;
+    --phone: #0b0c0e;
+    --wall: linear-gradient(180deg, #4a5060 0%, #6b7282 45%, #3f4452 100%);
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f4f3ef;
+      --card: #ffffff;
+      --line: #e3e1da;
+      --text: #1d1d20;
+      --muted: #6c6c74;
+      --accent: #2b2924;
+      --accent-ink: #f4f3ef;
+      --phone: #1d1d20;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: max(20px, env(safe-area-inset-top)) 18px max(28px, env(safe-area-inset-bottom));
+    max-width: 520px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 22px; margin: 4px 0 2px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); margin: 0 0 18px; font-size: 14px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .label { font-weight: 600; }
+  .hint { color: var(--muted); font-size: 13px; }
+
+  .switch { position: relative; width: 52px; height: 30px; flex: none; }
+  .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .track {
+    position: absolute; inset: 0; border-radius: 99px; background: var(--line);
+    transition: background .2s;
+  }
+  .track::after {
+    content: ""; position: absolute; top: 4px; left: 4px; width: 22px; height: 22px;
+    border-radius: 50%; background: var(--muted); transition: transform .2s, background .2s;
+  }
+  .switch input:checked + .track { background: var(--accent); }
+  .switch input:checked + .track::after { transform: translateX(22px); background: var(--accent-ink); }
+
+  .layout { display: flex; gap: 16px; align-items: stretch; }
+  .controls { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+
+  .value { font-size: 44px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+  .value small { font-size: 16px; font-weight: 600; color: var(--muted); margin-left: 4px; }
+  .value.off { font-size: 30px; color: var(--muted); }
+
+  input[type=range] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 30px; background: transparent;
+    margin: 14px 0 6px;
+  }
+  input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 99px; background: var(--line); }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent); margin-top: -10px; border: 3px solid var(--card);
+  }
+  input[type=range]:disabled { opacity: .35; }
+  .scale { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
+
+  .steppers { display: flex; gap: 8px; margin-top: 10px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  button {
+    font: inherit; color: var(--text); background: transparent; border: 1px solid var(--line);
+    border-radius: 99px; padding: 8px 14px; cursor: pointer;
+  }
+  button:active { transform: scale(.97); }
+  button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button.step { flex: 1; font-weight: 600; }
+  button:disabled { opacity: .35; }
+
+  .phone {
+    flex: none; width: 112px; border-radius: 20px; background: var(--phone); padding: 5px;
+    align-self: center;
+  }
+  .screen {
+    position: relative; width: 100%; aspect-ratio: 9 / 20; border-radius: 15px; overflow: hidden;
+    background: var(--wall);
+  }
+  .clock {
+    position: absolute; left: 0; right: 0; top: 11%; text-align: center;
+    color: rgba(255,255,255,.92); font-weight: 800; font-size: 26px; letter-spacing: -1px;
+  }
+  .date { position: absolute; left: 0; right: 0; top: 7%; text-align: center; color: rgba(255,255,255,.8); font-size: 7px; font-weight: 600; }
+  .player {
+    position: absolute; left: 6%; right: 6%; border-radius: 9px;
+    background: rgba(40, 38, 33, .78); border: 1px solid rgba(255,255,255,.12);
+    transition: top .25s ease, bottom .25s ease;
+    padding: 6px 7px;
+  }
+  .player .t { height: 5px; width: 55%; border-radius: 3px; background: rgba(255,255,255,.85); }
+  .player .a { height: 4px; width: 35%; border-radius: 3px; background: rgba(255,255,255,.5); margin-top: 4px; }
+  .player .bar { height: 3px; border-radius: 3px; background: rgba(255,255,255,.35); margin-top: 9px; }
+  .player .btn { position: absolute; right: 7px; top: 8px; width: 16px; height: 10px; border-radius: 6px; background: #ede4cf; }
+  .pill { position: absolute; bottom: 2.2%; left: 35%; right: 35%; height: 3px; border-radius: 3px; background: rgba(255,255,255,.7); }
+
+  .status { min-height: 20px; color: var(--muted); font-size: 13px; margin-top: 10px; transition: color .2s; }
+  .status.ok { color: #8fc49a; }
+  .status.err { color: #e48a80; }
+  .notice {
+    display: none; border: 1px dashed var(--line); color: var(--muted); border-radius: 14px;
+    padding: 10px 12px; font-size: 13px; margin-bottom: 14px;
+  }
+  .foot { color: var(--muted); font-size: 12px; text-align: center; margin-top: 18px; }
+  .link { background: none; border: none; color: var(--muted); text-decoration: underline; padding: 4px; font-size: 13px; }
+</style>
+</head>
+<body>
+  <h1>Lock Media Mover</h1>
+  <p class="sub">Where the music player sits on your lockscreen.</p>
+
+  <div class="notice" id="notice">
+    Preview mode: open this page from KernelSU, KsuWebUI or MMRL to actually change the setting.
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <div class="label">Move the player</div>
+        <div class="hint">Off puts it back to the stock spot</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="enabled" checked>
+        <span class="track"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="layout">
+      <div class="controls">
+        <div class="hint">Gap from the bottom</div>
+        <div class="value" id="value">160<small>dp</small></div>
+        <input type="range" id="slider" min="0" max="400" step="5" value="160" aria-label="Gap from the bottom in dp">
+        <div class="scale"><span>lower</span><span>higher</span></div>
+        <div class="steppers">
+          <button class="step" id="down" aria-label="Move player down">Down</button>
+          <button class="step" id="up" aria-label="Move player up">Up</button>
+        </div>
+      </div>
+      <div class="phone" aria-hidden="true">
+        <div class="screen" id="screen">
+          <div class="date">Sun, Nov 1</div>
+          <div class="clock">12:00</div>
+          <div class="player" id="player">
+            <div class="t"></div><div class="a"></div><div class="bar"></div><div class="btn"></div>
+          </div>
+          <div class="pill"></div>
+        </div>
+      </div>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="foot">
+    Changes save instantly. Lock your phone to see them.<br>
+    <button class="link" id="reset">Reset to default (160dp)</button>
+  </div>
+
+<script>
+
+  const KEY = "lockmediamover_bottom_dp";
+  const DEFAULT = 160;
+  const PRESETS = [20, 40, 60, 100, 160, 240];
+  const hasBridge = typeof window.ksu !== "undefined" && typeof window.ksu.exec === "function";
+  let cbCounter = 0;
+
+  function exec(cmd) {
+    return new Promise((resolve, reject) => {
+      if (!hasBridge) { reject(new Error("no ksu bridge")); return; }
+      const name = "lmm_cb_" + Date.now() + "_" + (cbCounter++);
+      window[name] = (errno, stdout, stderr) => {
+        delete window[name];
+        resolve({ errno, stdout: String(stdout || ""), stderr: String(stderr || "") });
+      };
+      try {
+        window.ksu.exec(cmd, "{}", name);
+      } catch (e) {
+        delete window[name];
+        reject(e);
+      }
+    });
+  }
+
+  function toast(msg) {
+    try { if (hasBridge && window.ksu.toast) window.ksu.toast(msg); } catch (e) {  }
+  }
+
+  const $ = (id) => document.getElementById(id);
+  const els = {
+    enabled: $("enabled"), slider: $("slider"), value: $("value"), up: $("up"), down: $("down"),
+    chips: $("chips"), status: $("status"), player: $("player"), screen: $("screen"),
+    reset: $("reset"), notice: $("notice"),
+  };
+
+  let screenDp = 873;
+  const STACK_INSET_DP = 31;
+  const PLAYER_DP = 145;
+  const STOCK_TOP_DP = 356;
+
+  let state = { enabled: true, dp: DEFAULT };
+  let saveTimer = null;
+
+  for (const p of PRESETS) {
+    const b = document.createElement("button");
+    b.textContent = p + "dp";
+    b.dataset.dp = p;
+    b.addEventListener("click", () => { state.enabled = true; state.dp = p; render(); queueSave(); });
+    els.chips.appendChild(b);
+  }
+
+  function render() {
+    els.enabled.checked = state.enabled;
+    els.slider.disabled = !state.enabled;
+    els.up.disabled = !state.enabled;
+    els.down.disabled = !state.enabled;
+    els.slider.value = state.dp;
+    if (state.enabled) {
+      els.value.className = "value";
+      els.value.innerHTML = state.dp + "<small>dp</small>";
+    } else {
+      els.value.className = "value off";
+      els.value.textContent = "Off";
+    }
+    for (const b of els.chips.children) {
+      b.classList.toggle("on", state.enabled && Number(b.dataset.dp) === state.dp);
+    }
+
+    const h = els.screen.clientHeight || 1;
+    const scale = h / screenDp;
+    const playerH = PLAYER_DP * scale;
+    els.player.style.height = playerH + "px";
+    if (state.enabled) {
+      let top = h - (STACK_INSET_DP + state.dp) * scale - playerH;
+      top = Math.max(top, STOCK_TOP_DP * scale);
+      els.player.style.top = top + "px";
+    } else {
+      els.player.style.top = STOCK_TOP_DP * scale + "px";
+    }
+  }
+
+  function setStatus(text, kind) {
+    els.status.textContent = text;
+    els.status.className = "status" + (kind ? " " + kind : "");
+  }
+
+  function queueSave() {
+    clearTimeout(saveTimer);
+    setStatus("Saving...");
+    saveTimer = setTimeout(save, 350);
+  }
+
+  async function save() {
+    const value = state.enabled ? state.dp : -1;
+    if (!hasBridge) { setStatus("Preview only, nothing saved", "err"); return; }
+    try {
+      const r = await exec("settings put secure " + KEY + " " + value);
+      if (r.errno === 0) {
+        setStatus(state.enabled ? "Saved " + value + "dp. Lock to see it :)" : "Off. Player is back to stock", "ok");
+      } else {
+        setStatus("Could not save: " + (r.stderr || "errno " + r.errno), "err");
+      }
+    } catch (e) {
+      setStatus("Could not save: " + e.message, "err");
+    }
+  }
+
+  async function load() {
+    if (!hasBridge) {
+      els.notice.style.display = "block";
+      render();
+      return;
+    }
+    try {
+      const [setting, size, density] = await Promise.all([
+        exec("settings get secure " + KEY),
+        exec("wm size"),
+        exec("wm density"),
+      ]);
+      const raw = setting.stdout.trim();
+      if (raw === "-1") {
+        state = { enabled: false, dp: DEFAULT };
+      } else if (/^\d+$/.test(raw)) {
+        state = { enabled: true, dp: Math.min(400, Number(raw)) };
+      } else {
+        state = { enabled: true, dp: DEFAULT };
+      }
+
+      const sizes = [...size.stdout.matchAll(/(\d+)x(\d+)/g)];
+      const dens = [...density.stdout.matchAll(/(\d+)/g)];
+      if (sizes.length && dens.length) {
+        const s = sizes[sizes.length - 1];
+        const hPx = Math.max(Number(s[1]), Number(s[2]));
+        const dpi = Number(dens[dens.length - 1][1]);
+        if (hPx > 0 && dpi > 0) screenDp = hPx * 160 / dpi;
+      }
+    } catch (e) {
+      setStatus("Could not read the current setting: " + e.message, "err");
+    }
+    render();
+  }
+
+  els.slider.addEventListener("input", () => { state.dp = Number(els.slider.value); render(); queueSave(); });
+  els.enabled.addEventListener("change", () => { state.enabled = els.enabled.checked; render(); queueSave(); });
+  els.up.addEventListener("click", () => { state.dp = Math.min(400, state.dp + 10); render(); queueSave(); });
+  els.down.addEventListener("click", () => { state.dp = Math.max(0, state.dp - 10); render(); queueSave(); });
+  els.reset.addEventListener("click", async () => {
+    state = { enabled: true, dp: DEFAULT };
+    render();
+    if (!hasBridge) return;
+    clearTimeout(saveTimer);
+    const r = await exec("settings delete secure " + KEY).catch(() => ({ errno: 1 }));
+    setStatus(r.errno === 0 ? "Back to default (160dp)" : "Could not reset", r.errno === 0 ? "ok" : "err");
+    toast("Lock Media Mover reset");
+  });
+  window.addEventListener("resize", render);
+
+  load();
+</script>
+</body>
+</html>

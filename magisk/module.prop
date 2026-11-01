@@ -1,0 +1,6 @@
+id=lockmediamover
+name=Lock Media Mover
+version=v1.2
+versionCode=5
+author=devmatei
+description=Moves the lockscreen media player down, iOS style (Android 16, AOSP-based ROMs). Needs LSPosed: enable the module there with System UI scope. Change the position with Action (volume keys) or the WebUI.
